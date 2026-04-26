@@ -1,9 +1,10 @@
-const { 
-  Client, 
-  GatewayIntentBits, 
-  REST, 
-  Routes, 
-  SlashCommandBuilder 
+const {
+  Client,
+  GatewayIntentBits,
+  REST,
+  Routes,
+  SlashCommandBuilder,
+  EmbedBuilder
 } = require("discord.js");
 
 const TOKEN = process.env.DISCORD_TOKEN;
@@ -13,27 +14,45 @@ const dexter = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMembers
   ]
 });
 
-// 🟢 játék állapot
-let gameChannel = null;
-let lastNumber = null;
+// 🟢 CSATORNÁK
+let welcomeChannelId = null;
+let leaveChannelId = null;
 
-// 🟢 SLASH COMMAND REGISZTRÁLÁS
+// 🟢 SLASH COMMANDOK
 const commands = [
   new SlashCommandBuilder()
-    .setName("szamolas")
-    .setDescription("Számolós játék indítása")
+    .setName("udvozlo")
+    .setDescription("Belépő csatorna beállítása")
     .addChannelOption(option =>
       option.setName("csatorna")
-        .setDescription("Válaszd ki a csatornát")
+        .setDescription("Üdvözlő csatorna")
         .setRequired(true)
-    )
-    .toJSON()
-];
+    ),
 
+  new SlashCommandBuilder()
+    .setName("kilepo")
+    .setDescription("Kilépő csatorna beállítása")
+    .addChannelOption(option =>
+      option.setName("csatorna")
+        .setDescription("Kilépő csatorna")
+        .setRequired(true)
+    ),
+
+  new SlashCommandBuilder()
+    .setName("ping")
+    .setDescription("Ping válasz"),
+
+  new SlashCommandBuilder()
+    .setName("help")
+    .setDescription("Parancsok listája")
+].map(c => c.toJSON());
+
+// 🟢 REGISZTRÁLÁS
 const rest = new REST({ version: "10" }).setToken(TOKEN);
 
 (async () => {
@@ -42,71 +61,115 @@ const rest = new REST({ version: "10" }).setToken(TOKEN);
       Routes.applicationCommands(CLIENT_ID),
       { body: commands }
     );
-    console.log("✅ Slash command regisztrálva");
+    console.log("✅ Slash commandok regisztrálva");
   } catch (err) {
     console.log(err);
   }
 })();
 
-// 🟢 BOT INDULÁS
+// 🟢 READY
 dexter.once("ready", () => {
   console.log(`✅ Bejelentkezve: ${dexter.user.tag}`);
 });
 
-// 🟢 SLASH COMMAND KEZELÉS
+// 🟢 SLASH HANDLER
 dexter.on("interactionCreate", async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
-  if (interaction.commandName === "szamolas") {
+  if (interaction.commandName === "udvozlo") {
     const channel = interaction.options.getChannel("csatorna");
+    welcomeChannelId = channel.id;
+    return interaction.reply(`✅ Üdvözlő csatorna: ${channel}`);
+  }
 
-    gameChannel = channel.id;
-    lastNumber = null;
+  if (interaction.commandName === "kilepo") {
+    const channel = interaction.options.getChannel("csatorna");
+    leaveChannelId = channel.id;
+    return interaction.reply(`✅ Kilépő csatorna: ${channel}`);
+  }
 
-    return interaction.reply(`✅ Számolás elindítva itt: ${channel}`);
+  if (interaction.commandName === "ping") {
+    return interaction.reply("Ping 🏓");
+  }
+
+  if (interaction.commandName === "help") {
+    return interaction.reply(
+      "📌 Parancsok:\n\n" +
+      "🏓 /ping\n" +
+      "❓ /help\n" +
+      "⚙️ /udvozlo\n" +
+      "🚪 /kilepo\n" +
+      "👕 marko\n" +
+      "💬 szia dexter"
+    );
   }
 });
 
-// 🟢 ÜZENETEK KEZELÉSE
+// 🟢 CHAT PARANCSOK
 dexter.on("messageCreate", message => {
   if (message.author.bot) return;
 
   const content = message.content.toLowerCase().trim();
 
-  // 👋 SZIA
-  if (content === "!szia") {
+  if (content === "szia dexter") {
     return message.channel.send(
-      "Szia 👋 én Dexter vagyok, a szerver botja.\n" +
-      "Folyamatosan fejlődöm 🤖\n" +
-      "Miben segíthetek?"
+      "Szia 👋 én Dexter vagyok a szerver botja 🤖"
     );
   }
 
-  // 🧢 MARKO
   if (content === "marko") {
     return message.channel.send("Poló 👕");
   }
+});
 
-  // 🧮 SZÁMOLÁS JÁTÉK
-  if (!gameChannel) return;
-  if (message.channel.id !== gameChannel) return;
+// 🟢 BELÉPÉS (EMBED + TAG RANG)
+dexter.on("guildMemberAdd", async member => {
+  const role = member.guild.roles.cache.find(r => r.name === "Tag");
 
-  const num = parseInt(content);
-  if (isNaN(num)) return;
-
-  if (lastNumber === null) {
-    lastNumber = num;
-    return message.react("🟢");
+  if (role) {
+    try {
+      await member.roles.add(role);
+    } catch (err) {
+      console.log(err);
+    }
   }
 
-  if (num === lastNumber + 1) {
-    lastNumber = num;
-    message.react("🟢");
-  } else {
-    message.react("❌");
-    message.channel.send(`❌ Rossz! Következő: ${lastNumber + 1}`);
-  }
+  const channel = member.guild.channels.cache.get(welcomeChannelId);
+  if (!channel) return;
 
+  const embed = new EmbedBuilder()
+    .setColor(0x00ffcc)
+    .setTitle("👋 Új tag érkezett!")
+    .setDescription(
+      `Szia ${member}!\n\n` +
+      `🤖 Dexter üdvözöl a szerveren!\n` +
+      `🎉 Megkaptad a **Tag** rangot!`
+    )
+    .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
+    .setFooter({ text: "Dexter Bot 🤖" });
+
+  channel.send({ embeds: [embed] });
+});
+
+// 🟢 KILÉPÉS (EMBED)
+dexter.on("guildMemberRemove", member => {
+  const channel = member.guild.channels.cache.get(leaveChannelId);
+  if (!channel) return;
+
+  const embed = new EmbedBuilder()
+    .setColor(0xff4444)
+    .setTitle("🚪 Tag kilépett")
+    .setDescription(
+      `😢 ${member.user.tag} elhagyta a szervert.`
+    )
+    .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
+    .setFooter({ text: "Dexter Bot 🤖" });
+
+  channel.send({ embeds: [embed] });
+});
+
+// 🟢 LOGIN
 });
 
 client.login(process.env.TOKEN);
+
