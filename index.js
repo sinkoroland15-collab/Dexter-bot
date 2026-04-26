@@ -1,4 +1,3 @@
-console.log("🔥 ÚJ KÓD FUT");
 const { Client, GatewayIntentBits } = require("discord.js");
 
 const dexter = new Client({
@@ -18,6 +17,11 @@ dexter.on("messageCreate", message => {
 
   const content = message.content.toLowerCase().trim();
 
+  // 🧢 MARKO PARANCS
+  if (content === "marko") {
+    return message.channel.send("Poló 👕");
+  }
+
   // 👋 SZIA PARANCS
   if (content === "!szia") {
     return message.channel.send(
@@ -25,6 +29,7 @@ dexter.on("messageCreate", message => {
       "Folyamatosan fejlődöm 🤖\n" +
       "Miben segíthetek?"
     );
+  }
   }  
           });
 
