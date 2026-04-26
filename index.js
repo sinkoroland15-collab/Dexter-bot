@@ -1,16 +1,31 @@
+console.log("🔥 ÚJ KÓD FUT");
 const { Client, GatewayIntentBits } = require("discord.js");
-const express = require("express");
 
-const app = express();
-app.get("/", (req, res) => res.send("Bot fut!"));
-app.listen(3000);
-
-const client = new Client({
-  intents: [GatewayIntentBits.Guilds]
+const dexter = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent
+  ]
 });
 
-client.once("ready", () => {
-  console.log("Dexter online!");
+dexter.once("ready", () => {
+  console.log(`✅ Dexter elindult: ${dexter.user.tag}`);
 });
+
+dexter.on("messageCreate", message => {
+  if (message.author.bot) return;
+
+  const content = message.content.toLowerCase().trim();
+
+  // 👋 SZIA PARANCS
+  if (content === "!szia") {
+    return message.channel.send(
+      "Szia 👋 én Dexter vagyok, a szerver botja.\n" +
+      "Folyamatosan fejlődöm 🤖\n" +
+      "Miben segíthetek?"
+    );
+  }  
+          });
 
 client.login(process.env.TOKEN);
