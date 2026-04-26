@@ -1,7 +1,10 @@
 const {
   Client,
   GatewayIntentBits,
-  EmbedBuilder
+  EmbedBuilder,
+  SlashCommandBuilder,
+  REST,
+  Routes
 } = require("discord.js");
 
 const fs = require("fs");
@@ -76,23 +79,66 @@ function removeXP(userId) {
   saveData();
 }
 
+// 🟢 SLASH COMMAND REGISZTRÁLÁS
+const commands = [
+  new SlashCommandBuilder()
+    .setName("szamolas")
+    .setDescription("Számolós játék indítása")
+    .addChannelOption(option =>
+      option.setName("csatorna")
+        .setDescription("Válaszd ki a csatornát")
+        .setRequired(true)
+    )
+].map(c => c.toJSON());
+
+const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
+
+(async () => {
+  try {
+    await rest.put(
+      Routes.applicationCommands(process.env.CLIENT_ID),
+      { body: commands }
+    );
+    console.log("✅ Slash command kész");
+  } catch (err) {
+    console.log(err);
+  }
+})();
+
 // 🟢 READY
 dexter.once("ready", () => {
   console.log(`✅ Bejelentkezve: ${dexter.user.tag}`);
 });
 
-// 🟢 MESSAGE PARANCSOK
+// 🟢 SLASH HANDLER
+dexter.on("interactionCreate", async interaction => {
+  if (!interaction.isChatInputCommand()) return;
+
+  if (interaction.commandName === "szamolas") {
+    const channel = interaction.options.getChannel("csatorna");
+
+    gameChannelId = channel.id;
+    lastNumber = null;
+    lastUserId = null;
+
+    return interaction.reply(
+      `🧮 Számolós játék elindítva itt: ${channel}\n👉 Csak ebben a csatornában működik!`
+    );
+  }
+});
+
+// 🟢 CHAT PARANCSOK
 dexter.on("messageCreate", message => {
   if (message.author.bot) return;
 
   const content = message.content.toLowerCase().trim();
 
-  // 🏓 PING (FIX: !ping)
+  // 🏓 PING
   if (content === "!ping") {
-    return message.reply("Ping 🏓");
+    return message.reply("🤖 Dexter itt van és teljesen aktív!");
   }
 
-  // 👋 SZIA DEXTER
+  // 👋 SZIA
   if (content === "szia dexter") {
     return message.channel.send("Szia 👋 Dexter itt 🤖");
   }
@@ -150,7 +196,7 @@ dexter.on("guildMemberAdd", member => {
 
   const embed = new EmbedBuilder()
     .setTitle("👋 Új tag!")
-    .setDescription(`${member} belépett a szerverre!`)
+    .setDescription(`${member} csatlakozott!`)
     .setThumbnail(member.user.displayAvatarURL())
     .setColor(0x00ffcc);
 
@@ -164,7 +210,7 @@ dexter.on("guildMemberRemove", member => {
 
   const embed = new EmbedBuilder()
     .setTitle("🚪 Kilépett")
-    .setDescription(`${member.user.tag} kilépett a szerverről`)
+    .setDescription(`${member.user.tag} kilépett`)
     .setThumbnail(member.user.displayAvatarURL())
     .setColor(0xff0000);
 
@@ -173,4 +219,3 @@ dexter.on("guildMemberRemove", member => {
 
 // 🔑 LOGIN
 dexter.login(process.env.DISCORD_TOKEN);
-
